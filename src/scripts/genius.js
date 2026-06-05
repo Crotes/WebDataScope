@@ -246,9 +246,10 @@ function insertOpsTable() {
 
                 if (mainContent) {
                     // 删除旧的表格容器（假设整体容器有唯一类名或ID）
-                    const oldWrapper = mainContent.querySelector('#operatorTable');
+                    const oldWrapper = mainContent.querySelector('#operatorAnalysisContainer');
                     if (oldWrapper) {
-                        oldWrapper.remove();
+                        oldWrapper.nextElementSibling.remove(); // 移除紧跟的 article.card
+                        oldWrapper.remove(); // 移除 header
                     }
 
                     // 插入到 mainContent 的末尾
@@ -259,45 +260,77 @@ function insertOpsTable() {
 
             // 给第二列（运算符定义）添加双击事件的函数
             function attachOperatorDoubleClickEvents() {
-                const definitionCells = table.querySelectorAll("tbody tr td:nth-child(2)");
+                // 确保 showSubmittedAlphaDetailsCard 存在（该函数定义在 alphaDetailsPopup.js 中）
+                if (typeof showSubmittedAlphaDetailsCard !== 'function') {
+                    console.warn('showSubmittedAlphaDetailsCard is not defined. Double-click events will not be attached.');
+                    return;
+                }
+                
+                const definitionCells = document.querySelectorAll("#operatorTable tbody tr td:nth-child(2), #operatorNotUsedTable tbody tr td:nth-child(2)");
                 definitionCells.forEach(cell => {
                     cell.style.cursor = 'pointer';
                     cell.style.userSelect = 'text';
                     // 移除旧的监听器（如果存在）
-                    cell.removeEventListener('dblclick', showOperatorAlphasCard);
-                    cell.addEventListener('dblclick', showOperatorAlphasCard);
+                    cell.removeEventListener('dblclick', showSubmittedAlphaDetailsCard);
+                    cell.addEventListener('dblclick', showSubmittedAlphaDetailsCard);
                 });
             }
 
-            // 排序功能
-            const table = document.getElementById("operatorTable");
-            const headers = table.querySelectorAll("th");
+            // 排序功能封装
+            function bindSorting(tableId) {
+                const table = document.getElementById(tableId);
+                if (!table) return;
+                const headers = table.querySelectorAll("th");
 
-            headers.forEach(header => {
-                header.addEventListener('click', function () {
-                    const column = this.getAttribute('data-sort');
-                    const rows = Array.from(table.querySelectorAll("tbody tr"));
-                    const sortedRows = rows.sort((a, b) => {
-                        const cellA = a.querySelector(`td:nth-child(${this.cellIndex + 1})`).innerText;
-                        const cellB = b.querySelector(`td:nth-child(${this.cellIndex + 1})`).innerText;
+                headers.forEach(header => {
+                    header.addEventListener('click', function () {
+                        const column = this.getAttribute('data-sort');
+                        const rows = Array.from(table.querySelectorAll("tbody tr"));
+                        const sortedRows = rows.sort((a, b) => {
+                            const cellA = a.querySelector(`td:nth-child(${this.cellIndex + 1})`).innerText;
+                            const cellB = b.querySelector(`td:nth-child(${this.cellIndex + 1})`).innerText;
 
-                        // 判断排序方式（数值或字符串）
-                        if (column === 'count') {
-                            return parseFloat(cellB) - parseFloat(cellA); // 数值排序
-                        } else {
-                            return cellA.localeCompare(cellB); // 字符串排序
-                        }
+                            // 判断排序方式（数值或字符串）
+                            if (column === 'count') {
+                                return parseFloat(cellB) - parseFloat(cellA); // 数值排序
+                            } else {
+                                return cellA.localeCompare(cellB); // 字符串排序
+                            }
+                        });
+
+                        // 清空原有的行并添加排序后的行
+                        const tbody = table.querySelector("tbody");
+                        tbody.innerHTML = '';
+                        sortedRows.forEach(row => tbody.appendChild(row));
+
+                        // 重新绑定双击事件
+                        attachOperatorDoubleClickEvents();
                     });
-
-                    // 清空原有的行并添加排序后的行
-                    const tbody = table.querySelector("tbody");
-                    tbody.innerHTML = '';
-                    sortedRows.forEach(row => tbody.appendChild(row));
-
-                    // 重新绑定双击事件
-                    attachOperatorDoubleClickEvents();
                 });
-            });
+            }
+
+            // 绑定两个表格的排序功能
+            bindSorting("operatorTable");
+            bindSorting("operatorNotUsedTable");
+
+            // 切换按钮功能
+            const toggleBtn = document.getElementById('toggleOperatorTableBtn');
+            const usedTableContainer = document.getElementById('operatorTableContainer');
+            const unusedTableContainer = document.getElementById('operatorNotUsedTableContainer');
+
+            if (toggleBtn && usedTableContainer && unusedTableContainer) {
+                toggleBtn.addEventListener('click', function() {
+                    if (usedTableContainer.style.display !== 'none') {
+                        usedTableContainer.style.display = 'none';
+                        unusedTableContainer.style.display = 'block';
+                        toggleBtn.innerText = '查看所有运算符';
+                    } else {
+                        usedTableContainer.style.display = 'block';
+                        unusedTableContainer.style.display = 'none';
+                        toggleBtn.innerText = '查看未使用运算符';
+                    }
+                });
+            }
 
             // 初始绑定双击事件
             attachOperatorDoubleClickEvents();
@@ -311,7 +344,10 @@ function insertOpsTable() {
 function generateOperatorTable(savedTimestamp, nonZeroCount, zeroCount, savedArray, alphaCount) {
     const [usTime, cnTime] = formatSavedTimestamp(savedTimestamp);
 
-    const rowsHTML = savedArray.map((item, index) => `
+    // Filter arrays based on count
+    const unusedOperators = savedArray.filter(item => item.count === 0);
+
+    const generateRowsHTML = (arr) => arr.map((item, index) => `
                         <tr class="${index % 2 ? 'odd-row' : ''}">
                             <td>${item.category}</td>
                             <td>${item.definition}</td>
@@ -321,8 +357,11 @@ function generateOperatorTable(savedTimestamp, nonZeroCount, zeroCount, savedArr
                         </tr>
                     `).join('');
 
+    const allRowsHTML = generateRowsHTML(savedArray);
+    const unusedRowsHTML = generateRowsHTML(unusedOperators);
+
     return `
-                    <div class="research-paradigm__header">
+                    <div class="research-paradigm__header" id="operatorAnalysisContainer">
                         <h2 class="genius__subtitle">Operator Analysis</h2>
                         <small class="genius__hint genius__hint--dark">
                             <span>美东时间: ${usTime}</span>
@@ -334,8 +373,14 @@ function generateOperatorTable(savedTimestamp, nonZeroCount, zeroCount, savedArr
                         <div class="card_wrapper">
                             <div class="card__content" style="padding-bottom: 26px;">
                                 <h3>统计了${alphaCount}个REGULAR Alpha（每天前4个），在你可用的运算符中，共有${nonZeroCount}种运算符被使用，${zeroCount}种运算符未被使用。</h3>
-                                <p>'-'有两种含义分别是substract和revers, 此处统一为substrac
-                                <div class="operator-table">
+                                <p>'-'有两种含义分别是substract和revers, 此处统一为substrac</p>
+                                
+                                <button id="toggleOperatorTableBtn" style="margin-bottom: 15px; padding: 6px 12px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    查看未使用运算符
+                                </button>
+
+                                <div class="operator-table" id="operatorTableContainer">
+                                    <h4 style="margin-top: 0;">所有运算符</h4>
                                     <table id="operatorTable" class="sortable WQScope_table">
                                         <thead>
                                             <tr>
@@ -347,10 +392,29 @@ function generateOperatorTable(savedTimestamp, nonZeroCount, zeroCount, savedArr
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${rowsHTML}
+                                            ${allRowsHTML}
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <div class="operator-table" id="operatorNotUsedTableContainer" style="display: none;">
+                                    <h4 style="margin-top: 0;">未使用运算符</h4>
+                                    <table id="operatorNotUsedTable" class="sortable WQScope_table">
+                                        <thead>
+                                            <tr>
+                                                <th data-sort="category">Category</th>
+                                                <th data-sort="definition">Definition</th>
+                                                <th data-sort="count">Count</th>
+                                                <th data-sort="scope">Scope</th>
+                                                <th data-sort="level">Level</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${unusedRowsHTML}
+                                        </tbody>
+                                    </table>
+                                </div>
+
                             </div>
                         </div>
                     </article>
@@ -971,7 +1035,7 @@ function rankInfo2Html(result) {
 
     <button id="editRankButton" style="margin-bottom: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">编辑六维指标</button>
     <div id="editRankForm" style="display: none; margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-        <h4>编辑六维指标数据</h4>
+        <h4 style="margin-top: 0; margin-bottom: 10px;">编辑六维指标数据</h4>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
             <div>
                 <label>Operator Count:</label>
@@ -998,7 +1062,10 @@ function rankInfo2Html(result) {
                 <input type="number" id="maxSimulationStreak" value="${userData.maxSimulationStreak || 0}" style="width: 100%;">
             </div>
         </div>
-        <button id="updateRankButton" style="margin-top: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新排名</button>
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+            <button id="fetchRealtimeDataBtn" style="padding: 5px 10px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">获取最新数据</button>
+            <button id="updateRankButton" style="padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">更新排名</button>
+        </div>
     </div>
     <div style="display: flex; justify-content: space-between; gap: 20px;">
     <div style="flex: 1;">
@@ -1107,11 +1174,41 @@ function bindRankEditEvents(userId, savedTimestamp) {
     const editButton = document.getElementById('editRankButton');
     const editForm = document.getElementById('editRankForm');
     const updateButton = document.getElementById('updateRankButton');
+    const fetchRealtimeDataBtn = document.getElementById('fetchRealtimeDataBtn');
 
     if (editButton && editForm && updateButton) {
         editButton.addEventListener('click', () => {
             editForm.style.display = editForm.style.display === 'none' ? 'block' : 'none';
         });
+
+        if (fetchRealtimeDataBtn) {
+            fetchRealtimeDataBtn.addEventListener('click', async () => {
+                const originalText = fetchRealtimeDataBtn.innerText;
+                fetchRealtimeDataBtn.innerText = '获取中...';
+                fetchRealtimeDataBtn.disabled = true;
+                
+                try {
+                    const selfSummary = await getDataFromUrl('https://api.worldquantbrain.com/users/self/consultant/summary');
+                    if (selfSummary && selfSummary.leaderboard) {
+                        const lb = selfSummary.performance.current;
+                        document.getElementById('operatorCount').value = lb.operatorCount || 0;
+                        document.getElementById('operatorAvg').value = lb.operatorAvg || 0;
+                        document.getElementById('fieldCount').value = lb.fieldCount || 0;
+                        document.getElementById('fieldAvg').value = lb.fieldAvg || 0;
+                        document.getElementById('communityActivity').value = lb.communityActivity || 0;
+                        document.getElementById('maxSimulationStreak').value = lb.maxSimulationStreak || 0;
+                        fetchRealtimeDataBtn.innerText = '获取最新数据成功';
+                    } else {
+                        fetchRealtimeDataBtn.innerText = '获取数据失败';
+                    }
+                } catch (error) {
+                    console.error('获取实时数据失败:', error);
+                } finally {
+                    fetchRealtimeDataBtn.innerText = originalText;
+                    fetchRealtimeDataBtn.disabled = false;
+                }
+            });
+        }
 
         updateButton.addEventListener('click', async () => {
             const newData = {
@@ -1164,6 +1261,17 @@ async function updateUserRankings(userId, newData) {
 
     // 更新用户数据
     Object.assign(userData, newData);
+    
+    // 保存更新后的数据到缓存，这样全局排名表(Rank List)刷新时也会使用最新数据
+    await new Promise(resolve => {
+        chrome.storage.local.set({ WQPRankData: WQPRankData }, resolve);
+    });
+    
+    // 重新渲染总排行榜（如果页面上有的话）
+    const existingTable = document.querySelector("#rankListCard");
+    if (existingTable) {
+        insertRankListInfo();
+    }
 
     // 使用通用的排名计算函数
     return await calculateRanks(WQPRankData.array, userId, WQPSettings);

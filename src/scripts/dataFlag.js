@@ -1,12 +1,12 @@
 // dataFlag.js: 对已经分析过的数据集进行标记
 console.log('dataFlag.js loaded');
 
-const flagMapOtherUniverse = {};
+var flagMapOtherUniverse = flagMapOtherUniverse || {};
 
 // IndexedDB 配置
-const DB_NAME = 'WQP_Data_Cache';
-const STORE_NAME = 'dataInfo';
-const DB_VERSION = 1;
+var DB_NAME = DB_NAME || 'WQP_Data_Cache';
+var STORE_NAME = STORE_NAME || 'dataInfo';
+var DB_VERSION = DB_VERSION || 1;
 
 // ---------------------- IndexedDB Helper ----------------------
 function openDB(version) {
@@ -112,7 +112,7 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
                 try {
                     let a_element = element.querySelector(".link.link--wrap");
                     // console.log(a_element)
-                    if (a_element.href.includes("data-fields")) {
+                    if (!a_element || a_element.href.includes("data-fields")) {
                         return;
                     }
                     let parts = a_element.href.split("/");
@@ -162,7 +162,7 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
                 try {
                     let a_element = element.querySelector(".link.link--wrap");
                     // console.log(a_element)
-                    if (a_element.href.includes("data-fields")) {
+                    if (!a_element || a_element.href.includes("data-fields")) {
                         return;
                     }
                     let parts = a_element.href.split("/");
@@ -231,7 +231,7 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
                 try {
                     let a_element = element.querySelector(".link.link--wrap");
                     // console.log(a_element)
-                    if (a_element.href.includes("data-fields")) {
+                    if (!a_element || a_element.href.includes("data-fields")) {
                         return;
                     }
                     let parts = a_element.href.split("/");
@@ -366,7 +366,7 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
                 try {
                     let a_element = element.querySelector(".link.link--wrap");
                     // console.log(a_element)
-                    if (a_element.href.includes("data-sets")) {
+                    if (!a_element || a_element.href.includes("data-sets")) {
                         return;
                     }
                     let parts = a_element.href.split("/");
@@ -435,7 +435,7 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
                 try {
                     let a_element = element.querySelector(".link.link--wrap");
                     // console.log(a_element)
-                    if (a_element.href.includes("data-sets")) {
+                    if (!a_element || a_element.href.includes("data-sets")) {
                         return;
                     }
                     let parts = a_element.href.split("/");
@@ -570,6 +570,16 @@ function dataFlagFunc(dataSetList, dataInfoUrl, currentVersion, url) {
 
 
 function processNeutralizationData(itemData) {
+    // 如果 itemData 为 null 或 undefined，返回默认值
+    if (!itemData) {
+        return {
+            entries: [],
+            totalCount: 0,
+            maxItem: { key: 'N/A', count: 0 },
+            maxPercentage: '0.00',
+            entriesDict: {}
+        };
+    }
     // 提取所有键和对应的count值
     const entries = Object.entries(itemData).map(([key, value]) => ({
         key,

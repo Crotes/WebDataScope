@@ -197,7 +197,7 @@ function formatSavedTimestamp(dateString) {
 }
 
 // 定义一个变量来存储已提交的 Alpha 列表和上次更新时间
-let submittedAlphasCache = {
+var submittedAlphasCache = submittedAlphasCache || {
     data: [],
     lastUpdated: 0
 };
@@ -299,8 +299,8 @@ async function fetchSubmittedAlphas(buttonId, forceRefresh = false) { // Add for
     return filteredAlphas;
 }
 
-let submittedFieldsCache = { data: [], lastUpdated: 0 }; // Used by getSubmittedFields
-let submittedFieldsPromise = null; // Used by getSubmittedFields
+var submittedFieldsCache = submittedFieldsCache || { data: [], lastUpdated: 0 }; // Used by getSubmittedFields
+var submittedFieldsPromise = submittedFieldsPromise || null; // Used by getSubmittedFields
 
 async function getSubmittedFields(forceRefresh = false) {
     if (submittedFieldsPromise && !forceRefresh) {
@@ -348,7 +348,7 @@ function findSingleOps(text) {
     return count;
 }
 
-const splitFunc = (item) => {
+var splitFunc = splitFunc || function(item) {
     return item.replace(' ', '').split(/[(),:+\-*/^<>=!?;\n#&|]+/).filter(part => part).map(item => item.replace(' ', ''));
 };
 
