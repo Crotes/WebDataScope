@@ -8,7 +8,6 @@ package.json
 !telemetry-worker/package.json
 !telemetry-worker/pnpm-lock.yaml
 !pnl-share-worker/package.json
-data/*
 figure/*
 img/screenshot.png
 make.bat
