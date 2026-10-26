@@ -89,7 +89,7 @@ async function loadDataMeta() {
     try {
         const meta = await sendMessage('WQP_INDEXED_DATA_GET', { responseType: 'meta' });
         if (!meta) {
-            setDataMeta('请导入WebData.zip文件');
+            setDataMeta('当前使用扩展内置 data/；也可导入 WebData.zip 覆盖');
             return;
         }
         const missing = Array.isArray(meta.missingRequired) && meta.missingRequired.length
@@ -97,7 +97,7 @@ async function loadDataMeta() {
             : '';
         setDataMeta(`当前数据：${meta.sourceName || '-'}，${meta.fileCount || 0} 个文件，${formatBytes(meta.totalBytes || 0)}，${meta.infoDataKeyCount || 0} 个 info 分片${missing}`);
     } catch (_) {
-        setDataMeta('请导入WebData.zip文件');
+        setDataMeta('数据状态读取失败；可尝试导入 WebData.zip');
     }
 }
 

@@ -1,6 +1,7 @@
 ﻿// background.js: 后台脚本，用于监听浏览器事件，如标签页更新、插件安装等，以及与content scripts和popup交互
 console.log('Background script is running.');
 import '../shared/dataStore.js';
+import { createExtensionDataService } from './services/extensionDataService.js';
 import { ensureDefaultSettings } from './services/settingsService.js';
 import './services/sidebarMessageRouter.js';
 import { initSessionKeeperService } from './services/sessionKeeperService.js';
@@ -51,83 +52,18 @@ function getExtensionDataStore() {
     return globalThis.WQPDataStore;
 }
 
-async function getJsonDataFile(path) {
-    const data = await getExtensionDataStore().getJson(path);
-    if (data === null) {
-        throw new Error(`Data file not found in IndexedDB: ${path}`);
-    }
-    return data;
+const extensionDataService = createExtensionDataService();
+
+function getJsonDataFile(path) {
+    return extensionDataService.getJson(path);
 }
 
-async function getRegionInfoData(key) {
-    const data = await getExtensionDataStore().getInfoData(key);
-    if (!data) {
-        throw new Error(`Info data shard not found for ${key}. Please re-import the data zip.`);
-    }
-    return data;
+function getCompressedBase64DataFile(path) {
+    return extensionDataService.getCompressedBase64(path);
 }
 
-function pickInfoRecords(source, ids) {
-    const result = {};
-    if (!source || !Array.isArray(ids)) return result;
-
-    for (const id of ids) {
-        if (Object.prototype.hasOwnProperty.call(source, id)) {
-            result[id] = source[id];
-        }
-    }
-
-    return result;
-}
-
-async function getInfoDataSubset(msg) {
-    const { region, delay, datasetIds = [], datafieldIds = [] } = msg;
-    if (!region || !delay) {
-        throw new Error('region and delay are required');
-    }
-
-    const key = `${region}_${delay}`;
-    const regionData = await getRegionInfoData(key);
-    const isos = regionData.isos || {};
-    const neutralization = regionData.neutralization || {};
-
-    return {
-        [key]: {
-            sub_end_time: regionData.sub_end_time,
-            isos: {
-                mean: isos.mean,
-                total_count: isos.total_count,
-                dataset: pickInfoRecords(isos.dataset, datasetIds),
-                datafield: pickInfoRecords(isos.datafield, datafieldIds),
-            },
-            neutralization: {
-                dataset: pickInfoRecords(neutralization.dataset, datasetIds),
-                datafield: pickInfoRecords(neutralization.datafield, datafieldIds),
-            },
-        },
-    };
-}
-
-function arrayBufferToBase64(arrayBuffer) {
-    const bytes = new Uint8Array(arrayBuffer);
-    const chunkSize = 0x8000;
-    let binary = '';
-
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, i + chunkSize);
-        binary += String.fromCharCode(...chunk);
-    }
-
-    return btoa(binary);
-}
-
-async function getCompressedBase64DataFile(path) {
-    const normalizedPath = getExtensionDataStore().normalizeDataPath(path);
-    const arrayBuffer = await getExtensionDataStore().getFileArrayBuffer(normalizedPath);
-    if (!arrayBuffer) {
-        throw new Error(`Data file not found in IndexedDB: ${normalizedPath}`);
-    }
-    return arrayBufferToBase64(arrayBuffer);
+function getInfoDataSubset(msg) {
+    return extensionDataService.getInfoDataSubset(msg);
 }
 
 async function handleIndexedDbDataRequest(msg) {
@@ -157,7 +93,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     try {
         dataSetList = await getDataSetList();
     } catch (error) {
-        console.warn('Data zip has not been imported into IndexedDB yet.', error);
+        console.warn('Unable to load dataSetList from imported or bundled data.', error);
         dataSetList = null;
     }
     checkUpdate();
@@ -485,7 +421,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         handleIndexedDbDataRequest(msg).then((data) => {
             sendResponse({ ok: true, data });
         }).catch((error) => {
-            console.error('IndexedDB data request failed:', error);
+            console.error('Extension data request failed:', error);
             sendResponse({ ok: false, error: error.message });
         });
         return true;
@@ -700,7 +636,7 @@ async function injectionDataFlagScript(tabId, tab) {
         try {
             dataSetList = await getDataSetList();
         } catch (error) {
-            console.warn('Unable to load dataSetList from IndexedDB.', error);
+            console.warn('Unable to load dataSetList from imported or bundled data.', error);
             dataSetList = [];
         }
     }

@@ -28,10 +28,11 @@ WebDataScope（manifest 中的名称为 **WorldQuant Scope**）是一个 Chrome/
 ## 数据文件（`data/*.bin`）
 
 - `.bin` 文件是按 **`<数据集ID>_<地区>_<宇宙>_Delay<N>.bin`** 命名的预计算数据分析结果（如 `analyst11_EUR_TOP1200_Delay1.bin`），共 150+ 个。
-- 编码方式：**pako 压缩 + MessagePack 序列化**。读取模式为 `pako.inflate(arrayBuffer)` → `msgpack.decode(...)`（见 `dataAna.js:109`、`dataFlag.js:75`）。
+- 编码方式：**pako 压缩 + MessagePack 序列化**。读取模式为 `pako.inflate(arrayBuffer)` → `msgpack.decode(...)`（见 `src/content/platform/data/dataAna.js`）。
 - `data/dataSetList.json` 是所有可用 `.bin` 数据文件名的清单（不带扩展名）。
-- 这些文件通过 `web_accessible_resources` 暴露给平台页面，由 `background.js` / content scripts 用 `chrome.runtime.getURL(...)` + `fetch` 加载。
-- `.gitignore` 中有 `data/*`，但该目录实际已入库（ignore 规则早于入库），改动数据文件时注意 git 状态。
+- 运行时可手动导入 `WebData.zip`，由 `src/shared/dataStore.js` 写入 IndexedDB；手动导入的数据优先。
+- IndexedDB 中缺少对应文件或 info 分片时，`src/background/services/extensionDataService.js` 用 `chrome.runtime.getURL(...)` + `fetch` 回退读取扩展内置 `data/`，content scripts 不直接读取这些文件。
+- `data/` 已纳入 Git 版本控制，新增或修改的数据文件应随代码提交。
 
 ## 代码组织与运行时架构
 

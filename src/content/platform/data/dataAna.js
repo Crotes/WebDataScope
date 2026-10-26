@@ -119,7 +119,7 @@ async function fetchDataDetails(fileName, dataFieldData) {
         try {
             cacheData['dataSetList'] = await requestIndexedDbData('dataSetList.json', 'json');
         } catch (error) {
-            console.error('Data set list load failed from IndexedDB:', error);
+            console.error('Data set list load failed from imported or bundled data:', error);
             return;
         }
     }
